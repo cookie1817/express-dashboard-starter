@@ -1,0 +1,61 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String        @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  image      String?
+  email      String     @unique
+  password   String
+  hashedPassword String
+  emailCode String
+  isEmailVerify Boolean
+  inviteStatus String // 'signUp', 'readyToUpdatePassword', 'invited'
+  role       Int // 'systemAdmin', 'businessOwner', 'user'
+  businessIDs String[]   @db.ObjectId
+  businesses  Business[] @relation(fields: [businessIDs], references: [id])
+  tokens     Token[]
+  userRoleIDs  String[]     @db.ObjectId
+  UserRoles    UserRole[]   @relation(fields: [userRoleIDs], references: [id])
+}
+
+model Business {
+  id           String       @id @default(auto()) @map("_id") @db.ObjectId
+  name         String       @unique
+  userIDs      String[]     @db.ObjectId
+  users        User[]       @relation(fields: [userIDs], references: [id])
+  userRoleIDs  String[]     @db.ObjectId
+  UserRoles    UserRole[]   @relation(fields: [userRoleIDs], references: [id])
+}
+
+model UserRole {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  permissions String[]
+  userIDs     String[] @db.ObjectId
+  users       User[]   @relation(fields: [userIDs], references: [id])
+  businessIDs String[]   @db.ObjectId
+  businesses  Business[] @relation(fields: [businessIDs], references: [id])
+}
+
+model Token {
+  id        String      @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String
+  accessToken  String
+  refreshToken String
+  type      String // e.g., 'resetPassword', 'verifyEmail'
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id])
+}

@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: 'postgres:10.7'
+    environment:
+      - POSTGRES_USER=test
+      - POSTGRES_PASSWORD=test
+      - POSTGRES_DB=test
+    ports:
+      - 5432:5432
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  mongo:
+      image: 'mongo:latest'
+      environment:
+        - MONGO_INITDB_ROOT_USERNAME=test
+        - MONGO_INITDB_DATABASE=express-dashboard-starter
+        - MONGO_INITDB_ROOT_PASSWORD=test
+      ports:
+        - 27017:27017
+      volumes:
+        - ./data:/data/db
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    stdin_open: true
+    tty: true
+    command: npm run start:dev
+    container_name: 'express-dashboard-starter'
+    ports:
+      - 3000:3000
+    env_file:
+      - ./.env
+    environment:
+      - PGHOST=${PGHOST}
+      - PGPORT=${PGPORT}
+      - PGUSER=${PGUSER}
+      - PGPASSWORD=${PGPASSWORD}
+      - PGROHOST=${PGROHOST}
+      - PGROPORT=${PGROPORT}
+      - PGROUSER=${PGROUSER}
+      - PGROPASSWORD=${PGROPASSWORD}
+      - PGDATABASE=${PGDATABASE}
+    volumes:
+      - ./:/app
+      - ./docs:/app/docs
+    depends_on: [mongo]
+
+
+volumes:
+  postgres-data:
