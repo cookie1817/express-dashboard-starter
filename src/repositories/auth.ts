@@ -23,7 +23,7 @@ export class AuthRepository {
     return this.prisma.business.findUnique({ where: { name } });
   }
 
-  async createUserAndBusiness(name: string, email: string, password: string, hashedPassword: string, businessName: string, emailCode: string) {
+  async createUserAndBusiness(name: string, email: string, password: string, hashedPassword: string, businessName: string, emailOtpCode: string, eamilOtpCodeExpiresAt: Date) {
     return this.prisma.user.create({
       data: {
         name,
@@ -33,7 +33,8 @@ export class AuthRepository {
         inviteStatus: InviteStatus.SIGNUP,
         image: '',
         role: RoleCodes.BUSINESS_OWNER,
-        emailCode,
+        emailOtpCode,
+        eamilOtpCodeExpiresAt,
         isEmailVerify: false,
         businesses: {
           create: {
@@ -89,6 +90,18 @@ export class AuthRepository {
       },
       data: {
         isEmailVerify: true,
+      },
+    });
+  }
+
+  async updateUserEmailOtpCode(userId: string, emailOtpCode: string, eamilOtpCodeExpiresAt: Date) {
+    return this.prisma.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        emailOtpCode,
+        eamilOtpCodeExpiresAt
       },
     });
   }

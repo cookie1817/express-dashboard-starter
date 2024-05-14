@@ -20,7 +20,8 @@ model User {
   email      String     @unique
   password   String
   hashedPassword String
-  emailCode String
+  emailOtpCode String     // opt code
+  eamilOtpCodeExpiresAt DateTime
   isEmailVerify Boolean
   inviteStatus String // 'signUp', 'readyToUpdatePassword', 'invited'
   role       Int // 'systemAdmin', 'businessOwner', 'user'

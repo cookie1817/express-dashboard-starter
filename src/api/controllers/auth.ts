@@ -12,9 +12,7 @@ import {
     userSignUpDto,
 } from 'src/api/dto/auth';
 
-import { DASHBOARD_URL } from 'src/config';
-import { ErrorCodeMap, ErrorCodes } from 'src/domain/errors';
-import { StandardError } from 'src/domain/standard-error';
+import { ErrorCodeMap } from 'src/domain/errors';
 
 
 export class AuthController {
@@ -32,12 +30,12 @@ export class AuthController {
         this.router.post('/signup', validateData(userSignUpDto), this.signUp.bind(this));
         this.router.post('/singout', AuthenticateToken, this.signOut.bind(this));
         this.router.post('/refresh', AuthenticateToken, this.refreshToken.bind(this));
-        this.router.get('/verfifyEmail/:userId', this.verfifyEmail.bind(this));
-        this.router.get('/vuser', AuthenticateToken, this.getUser.bind(this));
+        this.router.post('/opt', AuthenticateToken, this.verfifyOTP.bind(this));
+        this.router.get('/resendotp/:userId', AuthenticateToken, this.resendOtp.bind(this));
     }
 
     // todo:
-        // flow 2: invited -> generate email code and save in db -> send mail
+    // flow 2: invited -> generate email code and save in db -> send mail
 
     getRouter(): Router {
         return this.router;
@@ -83,7 +81,7 @@ export class AuthController {
             const user = await this.authService.signUp(name, email, password, businessName);
             const token = await this.authService.getTokens(user);
 
-            await this.notificationService.sendVerificationEmail(user);
+            await this.notificationService.sendOtpCodeEmail(user);
             
             return res.status(201).json(token);
         } catch (error) {
@@ -149,7 +147,7 @@ export class AuthController {
         }
     }
 
-    async verfifyEmail(
+    async resendOtp(
         req: Request,
         res: Response,
         next: NextFunction
@@ -157,7 +155,23 @@ export class AuthController {
         try {
             const { userId } = req.params;
 
-            const result = await this.authService.verifiyEmail(userId, req.query.email_code as string);
+            const user = await this.authService.refreshOtp(userId);
+            await this.notificationService.sendOtpCodeEmail(user);
+            return res.status(200).json({ message: "ok" });
+        } catch (err) {
+            return next(err);
+        }
+    }
+
+    async verfifyOTP(
+        req: Request,
+        res: Response,
+        next: NextFunction
+    ): Promise<Response | void> {
+        try {
+            const { emailOtpCode, userId } = req.body;
+
+            const result = await this.authService.verifiyEmailOtp(userId, emailOtpCode);
             res.cookie("accessToken", result.accessToken, {
                 httpOnly: true,
                 expires: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000),
@@ -172,46 +186,9 @@ export class AuthController {
     
                 secure: true,
             });
-            return res.redirect(DASHBOARD_URL);
+            return res.status(200).json({ message: "ok" });
         } catch (err) {
             return next(err);
-        }
-    }
-
-    async getUser(req: Request, res: Response, next: NextFunction) {
-        try {
-            const { refreshToken, userId } = req.body;
-
-            const isValid = this.authService.verifyRefresh(refreshToken, userId);
-            if (!isValid) return res.status(ErrorCodeMap.INVALID_TOKEN).json({ success: false, error: "Invalid token,try login again" });
-
-            const token = await this.authService.getTokensByUserId(userId);
-            const id: string = uuid();
-            logger.info(
-            "User refresh api called",
-            id,
-            "auth.controler.ts",
-            "POST",
-            "/refresh",
-            "refreshTokens"
-            );
-            res.cookie("accessToken", token.accessToken, {
-            httpOnly: true,
-            expires: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000),
-            path: "/",
-            secure: true,
-            });
-
-            res.cookie("refreshToken", token.refreshToken, {
-            httpOnly: true,
-            expires: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000),
-            path: "/",
-
-            secure: true,
-            });
-            return res.status(201).json(token);
-        } catch (error) {
-            return next(error);
         }
     }
 }

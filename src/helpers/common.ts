@@ -1,4 +1,5 @@
 import _ from 'lodash';
+import moment from 'moment';
 
 export const isEmail = (email: string): boolean => {
     const emailRegex =
@@ -23,3 +24,11 @@ export const addHttpPrefix = (url: string) => {
     }
     return url.substring(0, 5).toLowerCase() + url.substring(5);
 };
+
+
+export const generateOtp = () => {
+    return {
+      emailOtpCode: (Math.floor(Math.random() * (900000)) + 100000).toString(),
+      eamilOtpCodeExpiresAt: moment().add(5, 'minutes').toDate()
+    }
+  }

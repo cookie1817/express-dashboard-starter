@@ -9,6 +9,7 @@ import { logger } from 'src/infra/logger';
 import { AuthRepository } from 'src/repositories/auth';
 import { InviteStatus, TokenTypes } from 'src/domain/users';
 import { JWT_SECRET, JWT_REFRESH_SECRET } from 'src/config';
+import { generateOtp } from 'src/helpers/common';
 
 export class AuthService {
     private readonly authRepository: AuthRepository;
@@ -54,10 +55,9 @@ export class AuthService {
         saltOrRounds
       );
 
-      const emailCode = (Math.floor(Math.random() * (9000000)) + 1000000).toString();
-
+      const newOtp = generateOtp();
       // Create the user
-      const user = await this.authRepository.createUserAndBusiness(name, email, password, hashedPassword, businessName, emailCode)
+      const user = await this.authRepository.createUserAndBusiness(name, email, password, hashedPassword, businessName, newOtp.emailOtpCode, newOtp.eamilOtpCodeExpiresAt)
 
       if (!user) {
         throw new StandardError(ErrorCodes.CREATED_ACCOUNT_FAILS, 'Creating account fails');
@@ -165,24 +165,53 @@ export class AuthService {
       }
      }
 
-    async verifiyEmail(userId: string, emailCode: string) {
+    async refreshOtp(userId: string) {
       const user = await this.authRepository.findOneById(userId);
-
-      if (user.isEmailVerify) {
-        const tokens = await this.getTokens(user);
-        return tokens
-      }
   
       if (!user || !user.hashedPassword) throw new StandardError(ErrorCodes.NOT_FOUND, 'User Not Found');
+
+      if (user.isEmailVerify) {
+        throw new StandardError(ErrorCodes.EMAIL_ALREADY_VERIFIED, 'Email is already verfied');
+      }
+
+      if (moment(user.eamilOtpCodeExpiresAt).isBefore(moment(user.eamilOtpCodeExpiresAt).add(30, 'second'))) {
+        throw new StandardError(ErrorCodes.TOO_MANY_REQUEST, 'Please try it after 30 second');
+      }
+
+      const newOtp = generateOtp();
+
+      const updatedUser = await this.authRepository.updateUserEmailOtpCode(userId, newOtp.emailOtpCode, newOtp.eamilOtpCodeExpiresAt);
+
+      // resend email
+
+
+      return updatedUser;
+    }
+
+    async verifiyEmailOtp(userId: string, emailOtpCode: string) {
+      const user = await this.authRepository.findOneById(userId);
   
-      const emailCodeMatch = user.emailCode === emailCode
-  
-      if (!emailCodeMatch) throw new StandardError(ErrorCodes.ACCESS_DENIED, 'Access Denied');
+      if (!user || !user.hashedPassword) throw new StandardError(ErrorCodes.NOT_FOUND, 'User Not Found');
+
+      if (user.isEmailVerify) {
+        throw new StandardError(ErrorCodes.EMAIL_ALREADY_VERIFIED, 'Email is already verfied');
+      }
+
+      if (moment(user.eamilOtpCodeExpiresAt).isAfter(moment())) {
+        throw new StandardError(ErrorCodes.OTP_EXPIRED, 'OTP code expired');
+      }
+
+      const matchOtpCode = user.emailOtpCode === emailOtpCode;
+
+      if (!matchOtpCode) {
+        throw new StandardError(ErrorCodes.OTP_CODE_NOT_MATCH, 'OTP code not matched');
+      }
 
       const updatedUser = await this.authRepository.updateUserEmailVerificationStatus(userId);
-  
-      const tokens = await this.getTokens(updatedUser);
 
-      return tokens;
+
+      const token = await this.getTokens(updatedUser);
+
+      return token
     }
 }
