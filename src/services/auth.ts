@@ -6,16 +6,20 @@ import { User, Token } from '@prisma/client';
 import { ErrorCodes } from 'src/domain/errors';
 import { StandardError } from 'src/domain/standard-error';
 import { logger } from 'src/infra/logger';
+import { NotificationService } from 'src/services/notification';
 import { AuthRepository } from 'src/repositories/auth';
 import { InviteStatus, TokenTypes } from 'src/domain/users';
 import { JWT_SECRET, JWT_REFRESH_SECRET } from 'src/config';
-import { generateOtp } from 'src/helpers/common';
+import { generateOtp, checkOtpResendAble } from 'src/helpers/common';
 
 export class AuthService {
     private readonly authRepository: AuthRepository;
 
-    constructor(authRepository: AuthRepository) {
+    private readonly notificationService: NotificationService;
+
+    constructor(authRepository: AuthRepository, notificationService: NotificationService) {
         this.authRepository = authRepository;
+        this.notificationService = notificationService;
     }
 
     async signIn(email: string, password: string) {
@@ -27,13 +31,14 @@ export class AuthService {
         throw new StandardError(ErrorCodes.WRONG_EMAIL_AND_PASSWORD, 'Wrong email and password');
       }
 
-      const match = await bcrypt.compare(password, user?.password);
-
-      if (match) {
+      const isPasswordMatched = await bcrypt.compare(password, user?.password);
+      if (isPasswordMatched) {
         const tokens = await this.getTokens(user);
         return {
           ...tokens
         };
+      } else {
+        throw new StandardError(ErrorCodes.WRONG_EMAIL_AND_PASSWORD, 'Wrong email and password');
       }
     }
 
@@ -62,6 +67,8 @@ export class AuthService {
       if (!user) {
         throw new StandardError(ErrorCodes.CREATED_ACCOUNT_FAILS, 'Creating account fails');
       }
+
+      await this.notificationService.sendOtpCodeEmail(user);
   
       return user;
     }
@@ -165,29 +172,6 @@ export class AuthService {
       }
      }
 
-    async refreshOtp(userId: string) {
-      const user = await this.authRepository.findOneById(userId);
-  
-      if (!user || !user.hashedPassword) throw new StandardError(ErrorCodes.NOT_FOUND, 'User Not Found');
-
-      if (user.isEmailVerify) {
-        throw new StandardError(ErrorCodes.EMAIL_ALREADY_VERIFIED, 'Email is already verfied');
-      }
-
-      if (moment(user.eamilOtpCodeExpiresAt).isBefore(moment(user.eamilOtpCodeExpiresAt).add(30, 'second'))) {
-        throw new StandardError(ErrorCodes.TOO_MANY_REQUEST, 'Please try it after 30 second');
-      }
-
-      const newOtp = generateOtp();
-
-      const updatedUser = await this.authRepository.updateUserEmailOtpCode(userId, newOtp.emailOtpCode, newOtp.eamilOtpCodeExpiresAt);
-
-      // resend email
-
-
-      return updatedUser;
-    }
-
     async verifiyEmailOtp(userId: string, emailOtpCode: string) {
       const user = await this.authRepository.findOneById(userId);
   
@@ -197,7 +181,13 @@ export class AuthService {
         throw new StandardError(ErrorCodes.EMAIL_ALREADY_VERIFIED, 'Email is already verfied');
       }
 
-      if (moment(user.eamilOtpCodeExpiresAt).isAfter(moment())) {
+      if (moment().isAfter(moment(user.eamilOtpCodeExpiresAt))) {
+        const newOtp = generateOtp();
+
+        const updatedUser = await this.authRepository.updateUserEmailOtpCode(userId, newOtp.emailOtpCode, newOtp.eamilOtpCodeExpiresAt);
+
+        // resend email
+        await this.notificationService.sendOtpCodeEmail(updatedUser);
         throw new StandardError(ErrorCodes.OTP_EXPIRED, 'OTP code expired');
       }
 
@@ -213,5 +203,32 @@ export class AuthService {
       const token = await this.getTokens(updatedUser);
 
       return token
+    }
+
+    async refreshOtp(userId: string) {
+      const user = await this.authRepository.findOneById(userId);
+  
+      if (!user || !user.hashedPassword) throw new StandardError(ErrorCodes.NOT_FOUND, 'User Not Found');
+
+      if (user.isEmailVerify) {
+        throw new StandardError(ErrorCodes.EMAIL_ALREADY_VERIFIED, 'Email is already verfied');
+      }
+
+      const canResend = checkOtpResendAble(user.eamilOtpCodeExpiresAt);
+
+      if (canResend) {
+        throw new StandardError(ErrorCodes.TOO_MANY_REQUEST, 'Please try it after 30 second');
+      }
+
+      const newOtp = generateOtp();
+
+      const updatedUser = await this.authRepository.updateUserEmailOtpCode(userId, newOtp.emailOtpCode, newOtp.eamilOtpCodeExpiresAt);
+
+      // resend email
+      await this.notificationService.sendOtpCodeEmail(updatedUser);
+
+      const token = await this.getTokens(updatedUser);
+
+      return token;
     }
 }

@@ -31,4 +31,12 @@ export const generateOtp = () => {
       emailOtpCode: (Math.floor(Math.random() * (900000)) + 100000).toString(),
       eamilOtpCodeExpiresAt: moment().add(5, 'minutes').toDate()
     }
-  }
+}
+
+export const checkOtpResendAble = (eamilOtpCodeExpiresAt: Date) => {
+    const otpCreatedAt = moment(eamilOtpCodeExpiresAt).subtract(5, "minutes");
+    if (moment().isBefore(otpCreatedAt.add(30, 'second'))) {
+        return true
+    }
+    return false
+}

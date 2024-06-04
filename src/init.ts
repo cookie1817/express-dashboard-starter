@@ -59,11 +59,11 @@ export async function init(
 
     // services
     const errorService = new ErrorService();
-    const authService = new AuthService(authRepository);
     const notificationService = new NotificationService(mailGunClient, sendGridClient);
+    const authService = new AuthService(authRepository, notificationService);
 
     // controllers
-    const authController = new AuthController(authService, notificationService);
+    const authController = new AuthController(authService);
     const rootController = new RootController();
     const errorController = new ErrorController(errorService);
 

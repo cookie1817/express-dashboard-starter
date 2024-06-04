@@ -19,7 +19,7 @@ export class NotificationService {
             const sendMailParams: MailDataRequired = {
                 from: 'poll5404@gmail.com',
                 to: user.email,
-                subject: "Inspectify Hub Inc – Email OTP Verification",
+                subject: "Inspectify Hub Inc - Email OTP Verification",
                 templateId: "d-de1b74ede9ea46b9b120fb7700fa682f",
                 dynamicTemplateData: {
                     otp_code: user.emailOtpCode,
