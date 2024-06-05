@@ -29,12 +29,12 @@ export const addHttpPrefix = (url: string) => {
 export const generateOtp = () => {
     return {
       emailOtpCode: (Math.floor(Math.random() * (900000)) + 100000).toString(),
-      eamilOtpCodeExpiresAt: moment().add(5, 'minutes').toDate()
+      eamilOtpCodeExpiresAt: moment().add(30, 'minutes').toDate()
     }
 }
 
 export const checkOtpResendAble = (eamilOtpCodeExpiresAt: Date) => {
-    const otpCreatedAt = moment(eamilOtpCodeExpiresAt).subtract(5, "minutes");
+    const otpCreatedAt = moment(eamilOtpCodeExpiresAt).subtract(30, "minutes");
     if (moment().isBefore(otpCreatedAt.add(30, 'second'))) {
         return true
     }

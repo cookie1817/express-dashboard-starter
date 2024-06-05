@@ -9,6 +9,7 @@ import { AuthenticateToken } from 'src/api/middlewares/authentication';
 import { 
     userSignInDto,
     userSignUpDto,
+    forgetPasswordDto,
 } from 'src/api/dto/auth';
 
 import { ErrorCodeMap } from 'src/domain/errors';
@@ -28,6 +29,8 @@ export class AuthController {
         this.router.post('/refresh', AuthenticateToken, this.refreshToken.bind(this));
         this.router.post('/otp', AuthenticateToken, this.verfifyOTP.bind(this));
         this.router.get('/resendotp', AuthenticateToken, this.resendOtp.bind(this));
+        this.router.post('/forgetpassword', validateData(forgetPasswordDto), this.forgetPassword.bind(this));
+        this.router.post('/resetpassword', this.resetPassword.bind(this));
     }
 
     // todo:
@@ -193,6 +196,38 @@ export class AuthController {
                 secure: true,
             });
             return res.status(200).json(result);
+        } catch (err) {
+            return next(err);
+        }
+    }
+
+    async forgetPassword(
+        req: Request,
+        res: Response,
+        next: NextFunction
+    ): Promise<Response | void> {
+        try {
+            const { email } = req.body;
+
+            const customLang = req.headers['x-custom-lang'] as string || 'en';
+
+            const result = await this.authService.forgetPassword(email, customLang);
+            return res.status(201).json({ message: "ok" });
+        } catch (err) {
+            return next(err);
+        }
+    }
+
+    async resetPassword(
+        req: Request,
+        res: Response,
+        next: NextFunction
+    ): Promise<Response | void> {
+        try {
+            const { password, token } = req.body;
+
+            const result = await this.authService.resetPassword(password, token);
+            return res.status(200).json({ message: "ok" });
         } catch (err) {
             return next(err);
         }

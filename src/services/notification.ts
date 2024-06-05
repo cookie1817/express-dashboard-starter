@@ -35,4 +35,24 @@ export class NotificationService {
         }
     }
 
+    async sendResetPasswordEmail(user: User, resetUrl: string): Promise<boolean> {
+        try {
+            const sendMailParams: MailDataRequired = {
+                from: 'poll5404@gmail.com',
+                to: user.email,
+                subject: "Inspectify Hub Inc - Password reset",
+                templateId: "d-056a4c49d53e45749239bae15dbe941e",
+                dynamicTemplateData: {
+                    reset_url: resetUrl
+                }
+            }
+
+            await this.sendGridClient.sendMail(sendMailParams);
+    
+            return true
+        } catch (err) {
+            console.log('error', err)
+        }
+    }
+
 }

@@ -9,8 +9,14 @@ import { logger } from 'src/infra/logger';
 import { NotificationService } from 'src/services/notification';
 import { AuthRepository } from 'src/repositories/auth';
 import { InviteStatus, TokenTypes } from 'src/domain/users';
-import { JWT_SECRET, JWT_REFRESH_SECRET } from 'src/config';
+import { JWT_SECRET, JWT_REFRESH_SECRET, DASHBOARD_URL } from 'src/config';
 import { generateOtp, checkOtpResendAble } from 'src/helpers/common';
+
+interface JwtPayload {
+  userId: string;
+  exp: number;
+}
+
 
 export class AuthService {
     private readonly authRepository: AuthRepository;
@@ -230,5 +236,51 @@ export class AuthService {
       const token = await this.getTokens(updatedUser);
 
       return token;
+    }
+
+    async forgetPassword(email: string, customLang: string) {
+      const user = await this.authRepository.findUserByEmail(email);
+  
+      if (!user || !user.hashedPassword) throw new StandardError(ErrorCodes.NOT_FOUND, 'User Not Found');
+
+      if (!user.isEmailVerify) {
+        throw new StandardError(ErrorCodes.EMAIL_NOT_VERIFIED, 'Email is not verfied');
+      }
+
+      const token = sign({ userId: user.id }, JWT_SECRET, { expiresIn: "4h"});
+      const resetUrl = `${DASHBOARD_URL}${customLang}/resetPassword?token=${token}`;
+     
+      // send email
+      await this.notificationService.sendResetPasswordEmail(user, resetUrl);
+
+      return true;
+    }
+
+    async resetPassword(password: string, userToken: string) {
+
+      if (!userToken) throw new StandardError(ErrorCodes.TOKEN_NOT_FOUND, 'Authorization token is missing');
+
+      const decoded = verify(userToken, JWT_SECRET) as JwtPayload
+      const userId = decoded.userId as string || '';
+      const currentTime = Date.now() / 1000;
+      const expiredAt = decoded.exp as number;
+
+      const expired = currentTime >= expiredAt;
+      if (expired || !userId) throw new StandardError(ErrorCodes.INVALID_TOKEN, 'INVALID_TOKEN');      
+
+      const user = await this.authRepository.findOneById(userId);
+  
+      if (!user || !user.hashedPassword) throw new StandardError(ErrorCodes.NOT_FOUND, 'User Not Found');
+
+      const saltOrRounds = 10;
+      const hashedPassword = await bcrypt.hash(
+        password,
+        saltOrRounds
+      );
+
+      // Create the user
+      const updatedUser = await this.authRepository.updateUserById(user.id, { hashedPassword: hashedPassword });
+
+      return updatedUser;
     }
 }
