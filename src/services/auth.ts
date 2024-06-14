@@ -63,22 +63,17 @@ export class AuthService {
     }
 
     async signUp(name: string, email: string, password: string, businessName: string) {
-
-      console.log('gogo1')
-
       const uniqueEmail = await this.userRepository.findUserByEmail(email);
       if (uniqueEmail) {
         throw new StandardError(ErrorCodes.EMAIL_EXISTED, 'User Email existed');
       }
 
-      console.log('gogo2')
 
       const uniqueBusinessName = await this.businessRepository.findBusinessByName(businessName);
       if (uniqueBusinessName) {
         throw new StandardError(ErrorCodes.BUSINESS_NAME_EXISTED, 'Business Name existed');
       }
 
-      console.log('gogo3')
       const saltOrRounds = 10;
       const hashedPassword = await bcrypt.hash(
         password,
@@ -86,7 +81,6 @@ export class AuthService {
       );
 
       const newOtp = generateOtp();
-      console.log('gogo4')
       // Create the user
       let user;
       try {
@@ -96,15 +90,11 @@ export class AuthService {
       }
     
 
-      console.log('gogo5')
       if (!user) {
         throw new StandardError(ErrorCodes.CREATED_ACCOUNT_FAILS, 'Creating account fails');
       }
 
-      console.log('gogo6')
       await this.notificationService.sendOtpCodeEmail(user);
-
-      console.log('gogo7')
   
       return user;
     }
