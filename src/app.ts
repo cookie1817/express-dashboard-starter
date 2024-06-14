@@ -18,12 +18,16 @@ export type AppDependencies = {
  */
 async function setupRoutes(app: Application, deps: AppDependencies = {}) {
     const {
-        authController
+        authController,
+        userController,
+        businessController
     } = await init(deps, {
         is_app_production: IS_APP_ENV_PRODUCTION
     });
 
     app.use('/api/v1/auth', authController.getRouter());
+    app.use('/api/v1/users', userController.getRouter());
+    app.use('/api/v1/businesses', businessController.getRouter());
 }
 const responseErrorHandler = (err: any, data: any) => {
     logger.error(err, { context: data, err: err.message }, 'Error in responseErrorHandler');

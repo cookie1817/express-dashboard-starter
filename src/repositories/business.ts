@@ -19,4 +19,19 @@ export class BusinessRepository {
       },
     });
   }
+
+  async getBusinessById(businessId: string) {
+    return this.prisma.business.findUnique({ where: { id: businessId } });
+  }
+
+  async getBusinessesByIds(busineeIds: string[]) {
+    return this.prisma.business.findMany(
+      { where: 
+        { id: {
+          in: busineeIds
+        },
+       } 
+      }
+    );
+  }
 }

@@ -1,23 +1,25 @@
 import NodeCache from 'node-cache';
 
 // Controllers import
+import { AuthController } from 'src/api/controllers/auth';
+import { BusinessController } from 'src/api/controllers/business'
 import { ErrorController } from 'src/api/controllers/error';
 import { HealthcheckController } from 'src/api/controllers/healthcheck';
 import { RootController } from 'src/api/controllers/root';
-import { AuthController } from 'src/api/controllers/auth';
 import { UserController } from 'src/api/controllers/user';
 
 // Services import
-import { ErrorService } from 'src/services/error-example';
 import { AuthService } from 'src/services/auth';
+import { BusinessService } from 'src/services/business';
+import { ErrorService } from 'src/services/error-example';
 import { NotificationService } from 'src/services/notification';
 import { UserService } from 'src/services/user';
 
 // Repository import
 import { AppDependencies } from './app';
 import { AuthRepository } from 'src/repositories/auth';
-import { UserRepository } from 'src/repositories/user';
 import { BusinessRepository } from 'src/repositories/business';
+import { UserRepository } from 'src/repositories/user';
 
 
 // clients
@@ -32,6 +34,7 @@ type InitControllerType = {
     errorController: ErrorController;
     authController: AuthController;
     userController: UserController;
+    businessController: BusinessController;
 };
 
 type InitOptionsType = {
@@ -73,18 +76,21 @@ export async function init(
         businessRepository,
         notificationService
         );
-    const userService = new UserService(userRepository);
+    const userService = new UserService(userRepository, businessRepository);
+    const businessService = new BusinessService(businessRepository);
 
     // controllers
     const authController = new AuthController(authService);
     const rootController = new RootController();
     const errorController = new ErrorController(errorService);
     const userController = new UserController(userService);
+    const businessController = new BusinessController(businessService)
 
     return {
         rootController,
         errorController,
         authController,
         userController,
+        businessController
     };
 }

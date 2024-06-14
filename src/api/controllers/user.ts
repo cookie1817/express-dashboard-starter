@@ -11,7 +11,7 @@ export class UserController {
     public constructor(userService: UserService) {
         this.userService = userService;
         this.router = Router();
-        this.router.get('/user', AuthenticateToken, this.getUser.bind(this));
+        this.router.get('/me', AuthenticateToken, this.getUser.bind(this));
     }
     getRouter(): Router {
         return this.router;
