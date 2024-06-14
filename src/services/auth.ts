@@ -8,6 +8,8 @@ import { StandardError } from 'src/domain/standard-error';
 import { logger } from 'src/infra/logger';
 import { NotificationService } from 'src/services/notification';
 import { AuthRepository } from 'src/repositories/auth';
+import { UserRepository } from 'src/repositories/user';
+import { BusinessRepository } from 'src/repositories/business';
 import { InviteStatus, TokenTypes } from 'src/domain/users';
 import { JWT_SECRET, JWT_REFRESH_SECRET, DASHBOARD_URL } from 'src/config';
 import { generateOtp, checkOtpResendAble } from 'src/helpers/common';
@@ -21,10 +23,21 @@ interface JwtPayload {
 export class AuthService {
     private readonly authRepository: AuthRepository;
 
+    private readonly userRepository: UserRepository;
+
+    private readonly businessRepository: BusinessRepository;
+
     private readonly notificationService: NotificationService;
 
-    constructor(authRepository: AuthRepository, notificationService: NotificationService) {
+    constructor(
+      authRepository: AuthRepository, 
+      userRepository: UserRepository,
+      businessRepository: BusinessRepository,
+      notificationService: NotificationService
+    ) {
         this.authRepository = authRepository;
+        this.userRepository = userRepository;
+        this.businessRepository = businessRepository;
         this.notificationService = notificationService;
     }
 
@@ -32,7 +45,7 @@ export class AuthService {
 
       const id: string = uuid();
       logger.info('auth service api called', id, 'auth.service.ts', '', '', 'signIn-service');
-      const user = await this.authRepository.findUserByEmail(email);
+      const user = await this.userRepository.findUserByEmail(email);
       if (!user) {
         throw new StandardError(ErrorCodes.WRONG_EMAIL_AND_PASSWORD, 'Wrong email and password');
       }
@@ -41,6 +54,7 @@ export class AuthService {
       if (isPasswordMatched) {
         const tokens = await this.getTokens(user);
         return {
+          user,
           ...tokens
         };
       } else {
@@ -50,16 +64,21 @@ export class AuthService {
 
     async signUp(name: string, email: string, password: string, businessName: string) {
 
-      const uniqueEmail = await this.authRepository.findUserByEmail(email);
+      console.log('gogo1')
+
+      const uniqueEmail = await this.userRepository.findUserByEmail(email);
       if (uniqueEmail) {
         throw new StandardError(ErrorCodes.EMAIL_EXISTED, 'User Email existed');
       }
 
-      const uniqueBusinessName = await this.authRepository.findBusinessByName(businessName);
+      console.log('gogo2')
+
+      const uniqueBusinessName = await this.businessRepository.findBusinessByName(businessName);
       if (uniqueBusinessName) {
         throw new StandardError(ErrorCodes.BUSINESS_NAME_EXISTED, 'Business Name existed');
       }
 
+      console.log('gogo3')
       const saltOrRounds = 10;
       const hashedPassword = await bcrypt.hash(
         password,
@@ -67,21 +86,32 @@ export class AuthService {
       );
 
       const newOtp = generateOtp();
+      console.log('gogo4')
       // Create the user
-      const user = await this.authRepository.createUserAndBusiness(name, email, password, hashedPassword, businessName, newOtp.emailOtpCode, newOtp.eamilOtpCodeExpiresAt)
+      let user;
+      try {
+        user = await this.authRepository.createUserAndBusiness(name, email, hashedPassword, businessName, newOtp.emailOtpCode, newOtp.eamilOtpCodeExpiresAt)
+      } catch(err) {
+        console.log('err', err)
+      }
+    
 
+      console.log('gogo5')
       if (!user) {
         throw new StandardError(ErrorCodes.CREATED_ACCOUNT_FAILS, 'Creating account fails');
       }
 
+      console.log('gogo6')
       await this.notificationService.sendOtpCodeEmail(user);
+
+      console.log('gogo7')
   
       return user;
     }
     
     
     async refreshTokens(userId: string, rt: string) {
-      const user = await this.authRepository.findOneById(userId);
+      const user = await this.userRepository.findOneById(userId);
   
       if (!user || !user.hashedPassword) throw new StandardError(ErrorCodes.ACCESS_DENIED, 'Access Denied');
   
@@ -93,7 +123,7 @@ export class AuthService {
   
       const rtHash = await this.hashPassword(tokens.refreshToken);
   
-      await this.authRepository.updateUserById(user.id, { hashedPassword: rtHash });
+      await this.userRepository.updateUserById(user.id, { hashedPassword: rtHash });
       return tokens;
     }
   
@@ -145,7 +175,7 @@ export class AuthService {
     }
 
     async getTokensByUserId(userId: string) {
-      const user = await this.authRepository.findOneById(userId);
+      const user = await this.userRepository.findOneById(userId);
   
       if (!user || !user.hashedPassword) throw new StandardError(ErrorCodes.ACCESS_DENIED, 'Access Denied');
       
@@ -179,7 +209,7 @@ export class AuthService {
      }
 
     async verifiyEmailOtp(userId: string, emailOtpCode: string) {
-      const user = await this.authRepository.findOneById(userId);
+      const user = await this.userRepository.findOneById(userId);
   
       if (!user || !user.hashedPassword) throw new StandardError(ErrorCodes.NOT_FOUND, 'User Not Found');
 
@@ -190,7 +220,7 @@ export class AuthService {
       if (moment().isAfter(moment(user.eamilOtpCodeExpiresAt))) {
         const newOtp = generateOtp();
 
-        const updatedUser = await this.authRepository.updateUserEmailOtpCode(userId, newOtp.emailOtpCode, newOtp.eamilOtpCodeExpiresAt);
+        const updatedUser = await this.userRepository.updateUserEmailOtpCode(userId, newOtp.emailOtpCode, newOtp.eamilOtpCodeExpiresAt);
 
         // resend email
         await this.notificationService.sendOtpCodeEmail(updatedUser);
@@ -212,7 +242,7 @@ export class AuthService {
     }
 
     async refreshOtp(userId: string) {
-      const user = await this.authRepository.findOneById(userId);
+      const user = await this.userRepository.findOneById(userId);
   
       if (!user || !user.hashedPassword) throw new StandardError(ErrorCodes.NOT_FOUND, 'User Not Found');
 
@@ -228,7 +258,7 @@ export class AuthService {
 
       const newOtp = generateOtp();
 
-      const updatedUser = await this.authRepository.updateUserEmailOtpCode(userId, newOtp.emailOtpCode, newOtp.eamilOtpCodeExpiresAt);
+      const updatedUser = await this.userRepository.updateUserEmailOtpCode(userId, newOtp.emailOtpCode, newOtp.eamilOtpCodeExpiresAt);
 
       // resend email
       await this.notificationService.sendOtpCodeEmail(updatedUser);
@@ -239,7 +269,7 @@ export class AuthService {
     }
 
     async forgetPassword(email: string, customLang: string) {
-      const user = await this.authRepository.findUserByEmail(email);
+      const user = await this.userRepository.findUserByEmail(email);
   
       if (!user || !user.hashedPassword) throw new StandardError(ErrorCodes.NOT_FOUND, 'User Not Found');
 
@@ -268,7 +298,7 @@ export class AuthService {
       const expired = currentTime >= expiredAt;
       if (expired || !userId) throw new StandardError(ErrorCodes.INVALID_TOKEN, 'INVALID_TOKEN');      
 
-      const user = await this.authRepository.findOneById(userId);
+      const user = await this.userRepository.findOneById(userId);
   
       if (!user || !user.hashedPassword) throw new StandardError(ErrorCodes.NOT_FOUND, 'User Not Found');
 
@@ -279,7 +309,7 @@ export class AuthService {
       );
 
       // Create the user
-      const updatedUser = await this.authRepository.updateUserById(user.id, { hashedPassword: hashedPassword });
+      const updatedUser = await this.userRepository.updateUserById(user.id, { hashedPassword: hashedPassword });
 
       return updatedUser;
     }

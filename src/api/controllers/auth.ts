@@ -25,7 +25,7 @@ export class AuthController {
         this.router = Router();
         this.router.post('/signin', validateData(userSignInDto), this.signIn.bind(this));
         this.router.post('/signup', validateData(userSignUpDto), this.signUp.bind(this));
-        this.router.post('/singout', AuthenticateToken, this.signOut.bind(this));
+        this.router.post('/signout', AuthenticateToken, this.signOut.bind(this));
         this.router.post('/refresh', AuthenticateToken, this.refreshToken.bind(this));
         this.router.post('/otp', AuthenticateToken, this.verfifyOTP.bind(this));
         this.router.get('/resendotp', AuthenticateToken, this.resendOtp.bind(this));

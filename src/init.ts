@@ -5,15 +5,19 @@ import { ErrorController } from 'src/api/controllers/error';
 import { HealthcheckController } from 'src/api/controllers/healthcheck';
 import { RootController } from 'src/api/controllers/root';
 import { AuthController } from 'src/api/controllers/auth';
+import { UserController } from 'src/api/controllers/user';
 
 // Services import
 import { ErrorService } from 'src/services/error-example';
 import { AuthService } from 'src/services/auth';
 import { NotificationService } from 'src/services/notification';
+import { UserService } from 'src/services/user';
 
 // Repository import
 import { AppDependencies } from './app';
 import { AuthRepository } from 'src/repositories/auth';
+import { UserRepository } from 'src/repositories/user';
+import { BusinessRepository } from 'src/repositories/business';
 
 
 // clients
@@ -27,6 +31,7 @@ type InitControllerType = {
     rootController: RootController;
     errorController: ErrorController;
     authController: AuthController;
+    userController: UserController;
 };
 
 type InitOptionsType = {
@@ -56,20 +61,30 @@ export async function init(
     // repositories
     await connect();
     const authRepository = new AuthRepository(prismaClient);
+    const userRepository = new UserRepository(prismaClient);
+    const businessRepository = new BusinessRepository(prismaClient);
 
     // services
     const errorService = new ErrorService();
     const notificationService = new NotificationService(mailGunClient, sendGridClient);
-    const authService = new AuthService(authRepository, notificationService);
+    const authService = new AuthService(
+        authRepository,
+        userRepository,
+        businessRepository,
+        notificationService
+        );
+    const userService = new UserService(userRepository);
 
     // controllers
     const authController = new AuthController(authService);
     const rootController = new RootController();
     const errorController = new ErrorController(errorService);
+    const userController = new UserController(userService);
 
     return {
         rootController,
         errorController,
         authController,
+        userController,
     };
 }

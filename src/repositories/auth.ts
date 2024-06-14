@@ -6,25 +6,12 @@ export class AuthRepository {
 
   private readonly prisma: PrismaClient;
   
-  // constructor(private prisma: PrismaClient) {}
   constructor(prisma: PrismaClient) {
     this.prisma = prisma;
   }
 
-  async findUserByEmail(email: string) {
-    return this.prisma.user.findUnique({ where: { email } });
-  }
-
-  async findOneById(userId: string) {
-    return this.prisma.user.findUnique({ where: { id: userId } });
-  }
-
-  async findBusinessByName(name: string) {
-    return this.prisma.business.findUnique({ where: { name } });
-  }
-
-  async createUserAndBusiness(name: string, email: string, password: string, hashedPassword: string, businessName: string, emailOtpCode: string, eamilOtpCodeExpiresAt: Date) {
-    return this.prisma.user.create({
+  async createUserAndBusiness(name: string, email: string, hashedPassword: string, businessName: string, emailOtpCode: string, eamilOtpCodeExpiresAt: Date) {
+    return await this.prisma.user.create({
       data: {
         name,
         email,
@@ -51,17 +38,8 @@ export class AuthRepository {
     });
   }
 
-  async updateUserById(userId: string, data: Partial<User>) {
-    return this.prisma.user.update({
-      where: {
-        id: userId,
-      },
-      data
-    });
-  }
-
   async upsertUserToken(userId: string, data: Partial<Token>) {
-    return this.prisma.token.upsert({
+    return await this.prisma.token.upsert({
       where: {
         id: userId,
         userId: userId
@@ -84,32 +62,12 @@ export class AuthRepository {
   }
 
   async updateUserEmailVerificationStatus(userId: string) {
-    return this.prisma.user.update({
+    return await this.prisma.user.update({
       where: {
         id: userId,
       },
       data: {
         isEmailVerify: true,
-      },
-    });
-  }
-
-  async updateUserEmailOtpCode(userId: string, emailOtpCode: string, eamilOtpCodeExpiresAt: Date) {
-    return this.prisma.user.update({
-      where: {
-        id: userId,
-      },
-      data: {
-        emailOtpCode,
-        eamilOtpCodeExpiresAt
-      },
-    });
-  }
-
-  async createBusiness(name: string) {
-    return this.prisma.business.create({
-      data: {
-        name,
       },
     });
   }
